@@ -11,6 +11,7 @@ fn main() {
 
     window.set_key_polling(true);
     window.make_current();
+    window.swap_buffers();
 
     while !window.should_close() {
         glfw.poll_events();
