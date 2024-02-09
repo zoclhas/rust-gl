@@ -11,6 +11,9 @@ fn process_events(
 ) {
     for (_, event) in glfw::flush_messages(events) {
         match event {
+            glfw::WindowEvent::FramebufferSize(w, h) => unsafe {
+                gl::Viewport(0, 0, w, h);
+            },
             glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                 window.set_should_close(true)
             }
@@ -42,6 +45,91 @@ void main()
     FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 }";
 
+fn shader_program() -> u32 {
+    unsafe {
+        let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+        let vertex_shader_source = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
+        gl::ShaderSource(
+            vertex_shader,
+            1,
+            &vertex_shader_source.as_ptr(),
+            std::ptr::null(),
+        );
+        gl::CompileShader(vertex_shader);
+
+        let mut success = 0;
+        gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+
+        if success == 0 {
+            let mut info_buffer = Vec::<u8>::with_capacity(512);
+            gl::GetShaderInfoLog(
+                vertex_shader,
+                512,
+                std::ptr::null_mut(),
+                info_buffer.as_mut_ptr() as *mut GLchar,
+            );
+            eprintln!(
+                "Failed to compile vertex shader:\n{}",
+                std::str::from_utf8(&info_buffer).unwrap()
+            );
+        }
+
+        let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+        let fragment_shader_source = CString::new(FRAGMENT_SHADER_SOURCE.as_bytes()).unwrap();
+        gl::ShaderSource(
+            fragment_shader,
+            1,
+            &fragment_shader_source.as_ptr(),
+            std::ptr::null(),
+        );
+        gl::CompileShader(fragment_shader);
+
+        success = 0;
+        gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+        if success == 0 {
+            let mut info_buffer = Vec::<u8>::with_capacity(512);
+
+            gl::GetShaderInfoLog(
+                fragment_shader,
+                512,
+                std::ptr::null_mut(),
+                info_buffer.as_mut_ptr() as *mut GLchar,
+            );
+            eprintln!(
+                "Failed to compile fragment shader:\n{}",
+                std::str::from_utf8(&info_buffer).unwrap()
+            );
+        }
+
+        let shader_program = gl::CreateProgram();
+        gl::AttachShader(shader_program, vertex_shader);
+        gl::AttachShader(shader_program, fragment_shader);
+        gl::LinkProgram(shader_program);
+
+        success = 0;
+        gl::GetShaderiv(shader_program, gl::LINK_STATUS, &mut success);
+        if success == 0 {
+            let mut info_buffer = Vec::<u8>::with_capacity(512);
+
+            gl::GetShaderInfoLog(
+                shader_program,
+                512,
+                std::ptr::null_mut(),
+                info_buffer.as_mut_ptr() as *mut GLchar,
+            );
+            eprintln!(
+                "Failed to link shader program:\n{}",
+                std::str::from_utf8(&info_buffer).unwrap()
+            );
+        }
+
+        gl::DeleteShader(vertex_shader);
+        gl::DeleteShader(fragment_shader);
+
+        shader_program
+    }
+}
+
 fn main() {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 
@@ -59,6 +147,37 @@ fn main() {
 
     gl::load_with(|sym| window.get_proc_address(sym) as *const _);
 
+    let shader_program = shader_program();
+
+    let (mut vbo, mut vao) = (0, 0);
+
+    unsafe {
+        gl::GenBuffers(1, &mut vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+
+        gl::GenVertexArrays(1, &mut vao);
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            std::mem::size_of_val(&VERTICES) as isize,
+            &VERTICES as *const f32 as *const c_void,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            3 * std::mem::size_of::<f32>() as i32,
+            std::ptr::null(),
+        );
+        gl::EnableVertexAttribArray(0);
+
+        gl::UseProgram(shader_program);
+        gl::BindVertexArray(vao);
+    }
+
     while !window.should_close() {
         process_events(&mut window, &events);
 
@@ -66,118 +185,10 @@ fn main() {
             gl::ClearColor(0.3, 0.2, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-
-            let vertex_shader_source = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
-            gl::ShaderSource(
-                vertex_shader,
-                1,
-                &vertex_shader_source.as_ptr(),
-                std::ptr::null(),
-            );
-            gl::CompileShader(vertex_shader);
-
-            let mut success = 0;
-            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
-
-            if success == 0 {
-                let mut info_buffer = Vec::<u8>::with_capacity(512);
-                gl::GetShaderInfoLog(
-                    vertex_shader,
-                    512,
-                    std::ptr::null_mut(),
-                    info_buffer.as_mut_ptr() as *mut GLchar,
-                );
-                eprintln!(
-                    "Failed to compile aaaa: {}",
-                    std::str::from_utf8(&info_buffer).unwrap()
-                );
-            }
-
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-
-            let fragment_shader_source = CString::new(FRAGMENT_SHADER_SOURCE.as_bytes()).unwrap();
-            gl::ShaderSource(
-                fragment_shader,
-                1,
-                &fragment_shader_source.as_ptr(),
-                std::ptr::null(),
-            );
-            gl::CompileShader(fragment_shader);
-
-            success = 0;
-            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-            if success == 0 {
-                let mut info_buffer = Vec::<u8>::with_capacity(512);
-
-                gl::GetShaderInfoLog(
-                    fragment_shader,
-                    512,
-                    std::ptr::null_mut(),
-                    info_buffer.as_mut_ptr() as *mut GLchar,
-                );
-                eprintln!(
-                    "Failed to compile fragment shader:\n{}",
-                    std::str::from_utf8(&info_buffer).unwrap()
-                );
-            }
-
-            let shader_program = gl::CreateProgram();
-            gl::AttachShader(shader_program, vertex_shader);
-            gl::AttachShader(shader_program, fragment_shader);
-            gl::LinkProgram(shader_program);
-
-            success = 0;
-            gl::GetShaderiv(shader_program, gl::LINK_STATUS, &mut success);
-            if success == 0 {
-                let mut info_buffer = Vec::<u8>::with_capacity(512);
-                info_buffer.set_len(512 - 1);
-
-                gl::GetShaderInfoLog(
-                    shader_program,
-                    512,
-                    std::ptr::null_mut(),
-                    info_buffer.as_mut_ptr() as *mut GLchar,
-                );
-                eprintln!(
-                    "Failed to compile aaaa: {}",
-                    std::str::from_utf8(&info_buffer).unwrap()
-                );
-            }
-
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
-
-            let (mut vbo, mut vao) = (0, 0);
-
-            gl::GenBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-
-            gl::GenVertexArrays(1, &mut vao);
-
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                std::mem::size_of_val(&VERTICES) as isize,
-                &VERTICES as *const f32 as *const c_void,
-                gl::STATIC_DRAW,
-            );
-
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                3 * std::mem::size_of::<f32>() as i32,
-                std::ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
-
-            gl::UseProgram(shader_program);
-            gl::BindVertexArray(vao);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
-
-            window.swap_buffers();
-            glfw.poll_events();
         }
+
+        window.swap_buffers();
+        glfw.poll_events();
     }
 }
