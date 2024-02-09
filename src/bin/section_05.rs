@@ -1,8 +1,9 @@
-use std::ffi::{c_void, CString};
-
 use gl::types::GLchar;
+use std::{ffi::CString, os::raw::c_void};
+
 use glfw::Context;
 
+extern crate gl;
 extern crate glfw;
 
 fn process_events(
@@ -24,7 +25,7 @@ fn process_events(
 
 #[rustfmt::skip]
 const VERTICES: [f32; 9] = [
-    -0.5, 0.5, 0.0,
+    -0.5, -0.5, 0.0,
     0.5, -0.5, 0.0,
     0.0, 0.5, 0.0,
 ];
@@ -42,11 +43,29 @@ out vec4 FragColor;
 
 void main()
 {
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}";
+    FragColor = vec4(1.0f, 0.8f, 0.2f, 1.0f);
+}
+";
 
-fn shader_program() -> u32 {
-    unsafe {
+fn main() {
+    let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
+
+    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+    glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+        glfw::OpenGlProfileHint::Core,
+    ));
+
+    let (mut window, events) = glfw
+        .create_window(800, 600, "Hello!", glfw::WindowMode::Windowed)
+        .expect("Failed to create GLFW window.");
+
+    window.make_current();
+    window.set_key_polling(true);
+    window.set_framebuffer_size_polling(true);
+
+    gl::load_with(|sym| window.get_proc_address(sym) as *const _);
+
+    let shader_program = unsafe {
         let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
         let vertex_shader_source = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
         gl::ShaderSource(
@@ -62,6 +81,7 @@ fn shader_program() -> u32 {
 
         if success == 0 {
             let mut info_buffer = Vec::<u8>::with_capacity(512);
+
             gl::GetShaderInfoLog(
                 vertex_shader,
                 512,
@@ -107,7 +127,7 @@ fn shader_program() -> u32 {
         gl::LinkProgram(shader_program);
 
         success = 0;
-        gl::GetShaderiv(shader_program, gl::LINK_STATUS, &mut success);
+        gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
         if success == 0 {
             let mut info_buffer = Vec::<u8>::with_capacity(512);
 
@@ -127,36 +147,17 @@ fn shader_program() -> u32 {
         gl::DeleteShader(fragment_shader);
 
         shader_program
-    }
-}
+    };
 
-fn main() {
-    let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
-    glfw.window_hint(glfw::WindowHint::OpenGlProfile(
-        glfw::OpenGlProfileHint::Core,
-    ));
-
-    let (mut window, events) = glfw
-        .create_window(800, 600, "Hello!", glfw::WindowMode::Windowed)
-        .expect("Failed to create GLFW window.");
-
-    window.set_key_polling(true);
-    window.make_current();
-
-    gl::load_with(|sym| window.get_proc_address(sym) as *const _);
-
-    let shader_program = shader_program();
-
-    let (mut vbo, mut vao) = (0, 0);
-
-    unsafe {
-        gl::GenBuffers(1, &mut vbo);
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+    let vao = unsafe {
+        let (mut vbo, mut vao) = (0, 0);
 
         gl::GenVertexArrays(1, &mut vao);
+        gl::GenBuffers(1, &mut vbo);
 
+        gl::BindVertexArray(vao);
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
             std::mem::size_of_val(&VERTICES) as isize,
@@ -174,9 +175,8 @@ fn main() {
         );
         gl::EnableVertexAttribArray(0);
 
-        gl::UseProgram(shader_program);
-        gl::BindVertexArray(vao);
-    }
+        vao
+    };
 
     while !window.should_close() {
         process_events(&mut window, &events);
@@ -185,6 +185,8 @@ fn main() {
             gl::ClearColor(0.3, 0.2, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
+            gl::UseProgram(shader_program);
+            gl::BindVertexArray(vao);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
 
