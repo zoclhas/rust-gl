@@ -1,5 +1,6 @@
 use glfw::Context;
 
+extern crate gl;
 extern crate glfw;
 
 fn process_events(
@@ -22,8 +23,13 @@ fn process_events(
 fn main() {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 
+    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+    glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+        glfw::OpenGlProfileHint::Core,
+    ));
+
     let (mut window, events) = glfw
-        .create_window(800, 600, "Hello!", glfw::WindowMode::Windowed)
+        .create_window(800, 600, "Rust OpenGL", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window.");
 
     window.make_current();
