@@ -50,7 +50,7 @@ void main()
 fn main() {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+    glfw.window_hint(glfw::WindowHint::ContextVersion(4, 2));
     glfw.window_hint(glfw::WindowHint::OpenGlProfile(
         glfw::OpenGlProfileHint::Core,
     ));
