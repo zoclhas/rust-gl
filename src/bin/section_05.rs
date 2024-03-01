@@ -18,6 +18,9 @@ fn process_events(
             glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                 window.set_should_close(true)
             }
+            glfw::WindowEvent::Key(glfw::Key::Q, _, glfw::Action::Press, _) => {
+                window.set_should_close(true)
+            }
             _ => {}
         }
     }
@@ -25,6 +28,7 @@ fn process_events(
 
 #[rustfmt::skip]
 const VERTICES: [f32; 9] = [
+    // First Trianlge
     -0.5, -0.5, 0.0,
     0.5, -0.5, 0.0,
     0.0, 0.5, 0.0,
